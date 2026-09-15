@@ -89,6 +89,35 @@
     border:1px solid var(--paper-line); border-radius:6px; padding:5px 10px;
   }
   .study-links a:hover{background:rgba(138,46,46,.06);}
+  .modo-banner{
+    background:linear-gradient(135deg, var(--brand), var(--brand-dark)); color:#FBF4E8;
+    padding:12px 16px; border-radius:10px; margin-bottom:16px; font-weight:600; font-size:14px;
+    text-align:center;
+  }
+  .origem-tag{
+    display:inline-block; font-size:11px; font-weight:700; letter-spacing:.03em;
+    color:var(--brand); background:rgba(138,46,46,.08); border-radius:5px;
+    padding:3px 8px; margin-bottom:10px; text-transform:uppercase;
+  }
+  .flash-top{
+    display:flex; justify-content:space-between; align-items:center; margin:20px 0 16px;
+  }
+  .flash-contador{font-size:14px; color:var(--ink-soft); font-weight:600;}
+  .flash-card{
+    background:var(--card); border:1px solid var(--paper-line); border-radius:14px;
+    padding:24px 22px; min-height:200px; box-shadow:0 4px 18px rgba(0,0,0,.06);
+  }
+  .flash-enun{white-space:pre-wrap; line-height:1.6; font-size:16px; margin-bottom:16px;}
+  .flash-alts{display:flex; flex-direction:column; gap:6px; margin-bottom:6px;}
+  .flash-alt{font-size:14.5px; line-height:1.5; color:var(--ink-soft);}
+  .flash-resposta{
+    margin-top:16px; padding-top:16px; border-top:2px dashed var(--paper-line);
+    font-size:15px; color:var(--ok); font-family:var(--serif);
+  }
+  .flash-resposta.anulada{color:var(--ink-soft);}
+  .flash-nav{
+    display:flex; justify-content:center; gap:10px; margin-top:18px; flex-wrap:wrap;
+  }
   .report-overlay{
     position:fixed; inset:0; background:rgba(20,15,10,.55); z-index:100;
     display:flex; align-items:center; justify-content:center; padding:20px;
@@ -164,12 +193,16 @@
   </div>
   <span class="stat" id="stat"></span>
   <button class="btn-ghost" id="retomarBtn" type="button" style="display:none;">🔁 Retomar erros salvos</button>
+  <button class="btn-primary" id="surpresaBtn" type="button">🎲 Prova Surpresa</button>
+  <button class="btn-ghost" id="flashcardsBtn" type="button">📇 Flashcards</button>
   <button class="btn-ghost" id="adminBtn" type="button" style="display:none;">Painel do administrador</button>
 </div>
 
 <div class="wrap" id="quizArea"></div>
 
 <div class="wrap" id="adminArea" style="display:none;"></div>
+
+<div class="wrap" id="flashArea" style="display:none;"></div>
 
 <div class="footer-bar" id="footerBar">
   <button class="btn-primary" id="corrigirBtn">Corrigir prova</button>
@@ -1198,6 +1231,10 @@ function popularSelect(){
   provaSelect.innerHTML = DATA.map(p => `<option value="${p.id}">${p.titulo}</option>`).join("");
 }
 
+function uidOf(q){
+  return q._uid !== undefined ? q._uid : q.n;
+}
+
 function carregarProva(id){
   provaAtual = DATA.find(p => p.id === id) || DATA[0];
   questoesAtivas = provaAtual.questoes;
@@ -1209,27 +1246,32 @@ function carregarProva(id){
 }
 
 function renderQuestoes(){
-  quizArea.innerHTML = questoesAtivas.map(q => `
-    <div class="q" id="q-${q.n}">
-      <div class="num">Questão ${q.n}</div>
-      ${q.img ? `<img class="qimg" src="${q.img}" alt="Imagem de apoio da questão ${q.n}">` : ""}
+  const banner = (provaAtual.id === "surpresa" || emRevisao)
+    ? `<div class="modo-banner">${provaAtual.id === "surpresa" ? "🎲 Prova Surpresa — 20 questões sorteadas de todas as provas do site" : "🔁 Modo revisão — refazendo só as questões que você errou"}</div>`
+    : "";
+  quizArea.innerHTML = banner + questoesAtivas.map((q, idx) => {
+    const uid = uidOf(q);
+    return `
+    <div class="q" id="q-${uid}">
+      <div class="num">Questão ${idx+1}</div>
+      ${q._origem ? `<div class="origem-tag">${escapeHtml(q._origem)}</div>` : ""}
+      ${q.img ? `<img class="qimg" src="${q.img}" alt="Imagem de apoio da questão ${idx+1}">` : ""}
       <div class="enun">${escapeHtml(q.enun)}</div>
       <div class="alts">
         ${q.alts.map((a,i) => `
-          <label class="alt" data-q="${q.n}" data-l="${LETRAS[i]}">
-            <input type="radio" name="q${q.n}" value="${LETRAS[i]}">
+          <label class="alt" data-q="${uid}" data-l="${LETRAS[i]}">
+            <input type="radio" name="q${uid}" data-uid="${uid}" value="${LETRAS[i]}">
             <span class="letter">${LETRAS[i]})</span>
             <span>${escapeHtml(a)}</span>
           </label>
         `).join("")}
       </div>
     </div>
-  `).join("");
+  `;}).join("");
 
   quizArea.querySelectorAll('input[type="radio"]').forEach(inp => {
     inp.addEventListener("change", e => {
-      const n = e.target.name.replace("q","");
-      respostas[n] = e.target.value;
+      respostas[e.target.dataset.uid] = e.target.value;
       atualizarStat();
     });
   });
@@ -1276,14 +1318,15 @@ function corrigir(){
   stopTimer();
   const total = questoesAtivas.length;
   let acertos = 0;
-  const numerosErrados = [];
-  questoesAtivas.forEach(q => {
-    const dada = respostas[q.n];
+  const uidsErrados = [];
+  questoesAtivas.forEach((q, idx) => {
+    const uid = uidOf(q);
+    const dada = respostas[uid];
     const anulada = q.resp === "ANULADA";
     const acertou = anulada || dada === q.resp;
     if(acertou) acertos++;
-    else numerosErrados.push(q.n);
-    const labels = document.querySelectorAll(`label[data-q="${q.n}"]`);
+    else uidsErrados.push(uid);
+    const labels = document.querySelectorAll(`label[data-q="${uid}"]`);
     labels.forEach(l => {
       l.classList.remove("correct","wrong");
       if(!anulada){
@@ -1293,13 +1336,13 @@ function corrigir(){
       l.querySelector("input").disabled = true;
     });
     if(!acertou){
-      const card = document.getElementById(`q-${q.n}`);
+      const card = document.getElementById(`q-${uid}`);
       if(card && !card.querySelector(".study-links")){
         card.appendChild(criarLinksEstudo(q));
       }
     }
     if(anulada){
-      const card = document.getElementById(`q-${q.n}`);
+      const card = document.getElementById(`q-${uid}`);
       if(card && !card.querySelector(".anulada-note")){
         const note = document.createElement("div");
         note.className = "anulada-note";
@@ -1312,27 +1355,28 @@ function corrigir(){
   const resultDiv = document.createElement("div");
   resultDiv.className = "result";
   resultDiv.innerHTML = `Resultado: <strong>${acertos}/${total}</strong> — ${((acertos/total)*100).toFixed(0)}% de aproveitamento<br><span style="font-size:14px; font-family:var(--sans); color:var(--ink-soft);">Tempo de prova: ${formatTime(elapsedSeconds)}</span>`;
-  salvarResultado(acertos, total, numerosErrados);
+  salvarResultado(acertos, total, uidsErrados);
   quizArea.prepend(resultDiv);
   window.scrollTo({top:0, behavior:"smooth"});
-  mostrarRelatorio(acertos, total, numerosErrados);
+  mostrarRelatorio(acertos, total, uidsErrados);
 }
 
 /* ---- Pop-up de relatório + modo revisão (só as erradas) ---- */
-function mostrarRelatorio(acertos, total, numerosErrados){
+function mostrarRelatorio(acertos, total, uidsErrados){
   const overlay = document.createElement("div");
   overlay.className = "report-overlay";
-  const listaHtml = numerosErrados.length
-    ? `<div class="report-errlist">${numerosErrados.map(n => `<span class="report-chip">Q${n}</span>`).join("")}</div>`
+  const posicoes = uidsErrados.map(uid => questoesAtivas.findIndex(q => uidOf(q) === uid) + 1);
+  const listaHtml = posicoes.length
+    ? `<div class="report-errlist">${posicoes.map(p => `<span class="report-chip">Q${p}</span>`).join("")}</div>`
     : `<p class="report-perfect">Você acertou todas! 🎉</p>`;
   overlay.innerHTML = `
     <div class="report-card">
       <h2>Resultado da prova</h2>
       <div class="report-score">${acertos} <span>acertos</span> &nbsp;·&nbsp; ${total-acertos} <span>erros</span></div>
-      ${numerosErrados.length ? `<p class="report-sub">Questões que você errou (estude o assunto antes de tentar de novo — as respostas não são mostradas aqui de propósito):</p>` : ""}
+      ${posicoes.length ? `<p class="report-sub">Questões que você errou (estude o assunto antes de tentar de novo — as respostas não são mostradas aqui de propósito):</p>` : ""}
       ${listaHtml}
       <div class="report-actions">
-        ${numerosErrados.length ? `<button class="btn-primary" id="reportRefazerBtn">Refazer só as ${numerosErrados.length} erradas</button>` : ""}
+        ${uidsErrados.length ? `<button class="btn-primary" id="reportRefazerBtn">Refazer só as ${uidsErrados.length} erradas</button>` : ""}
         <button class="btn-ghost" id="reportFecharBtn">Fechar</button>
       </div>
     </div>
@@ -1343,19 +1387,102 @@ function mostrarRelatorio(acertos, total, numerosErrados){
   if(refazerBtn){
     refazerBtn.addEventListener("click", () => {
       overlay.remove();
-      iniciarRevisao(numerosErrados);
+      iniciarRevisao(uidsErrados);
     });
   }
 }
 
-function iniciarRevisao(numeros){
-  questoesAtivas = provaAtual.questoes.filter(q => numeros.includes(q.n));
+function iniciarRevisao(uids){
+  questoesAtivas = questoesAtivas.filter(q => uids.includes(uidOf(q)));
   emRevisao = true;
   respostas = {};
   renderQuestoes();
   atualizarStat();
   resetTimer();
   window.scrollTo({top:0, behavior:"smooth"});
+}
+
+/* ---- Prova Surpresa: 20 questões sorteadas de todas as provas ---- */
+function iniciarProvaSurpresa(){
+  const pool = [];
+  DATA.forEach(p => {
+    p.questoes.forEach(q => {
+      pool.push(Object.assign({}, q, { _uid: p.id + "::" + q.n, _origem: p.titulo }));
+    });
+  });
+  for(let i = pool.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i+1));
+    const tmp = pool[i]; pool[i] = pool[j]; pool[j] = tmp;
+  }
+  const selecionadas = pool.slice(0, 20);
+  provaAtual = { id: "surpresa", titulo: "🎲 Prova Surpresa — 20 questões aleatórias", limiteMinutos: 40, questoes: selecionadas };
+  questoesAtivas = selecionadas;
+  emRevisao = false;
+  respostas = {};
+  renderQuestoes();
+  atualizarStat();
+  resetTimer();
+  window.scrollTo({top:0, behavior:"smooth"});
+}
+
+/* ---- Flashcards ---- */
+let flashIndex = 0;
+let flashVirado = false;
+const flashArea = document.getElementById("flashArea");
+
+function abrirFlashcards(){
+  if(!questoesAtivas || questoesAtivas.length === 0) return;
+  flashIndex = 0;
+  flashVirado = false;
+  quizArea.style.display = "none";
+  footerBar.style.display = "none";
+  flashArea.style.display = "block";
+  renderFlashcardAtual();
+  window.scrollTo({top:0, behavior:"smooth"});
+}
+function fecharFlashcards(){
+  flashArea.style.display = "none";
+  quizArea.style.display = "block";
+  footerBar.style.display = "flex";
+}
+function renderFlashcardAtual(){
+  const q = questoesAtivas[flashIndex];
+  const frenteAlts = q.alts.map((a,i) => `<div class="flash-alt">${LETRAS[i]}) ${escapeHtml(a)}</div>`).join("");
+  const imgHtml = q.img ? `<img class="qimg" src="${q.img}" alt="Imagem de apoio">` : "";
+  let versoHtml = "";
+  if(flashVirado){
+    if(q.resp === "ANULADA"){
+      versoHtml = `<div class="flash-resposta anulada">Questão anulada — considerada correta para todos.</div>`;
+    } else {
+      const idxCorreta = LETRAS.indexOf(q.resp);
+      versoHtml = `<div class="flash-resposta">Resposta certa: <strong>${q.resp}) ${escapeHtml(q.alts[idxCorreta] || "")}</strong></div>`;
+    }
+  }
+  flashArea.innerHTML = `
+    <div class="flash-top">
+      <button class="btn-ghost" id="flashFecharBtn">← Voltar ao simulado</button>
+      <span class="flash-contador">Carta ${flashIndex+1} de ${questoesAtivas.length}</span>
+    </div>
+    <div class="flash-card">
+      ${q._origem ? `<div class="origem-tag">${escapeHtml(q._origem)}</div>` : ""}
+      ${imgHtml}
+      <div class="flash-enun">${escapeHtml(q.enun)}</div>
+      <div class="flash-alts">${frenteAlts}</div>
+      <div id="flashVersoWrap">${versoHtml}</div>
+    </div>
+    <div class="flash-nav">
+      <button class="btn-ghost" id="flashAnteriorBtn" ${flashIndex===0 ? "disabled" : ""}>◀ Anterior</button>
+      <button class="btn-primary" id="flashVirarBtn">${flashVirado ? "Ocultar resposta" : "Virar cartão"}</button>
+      <button class="btn-ghost" id="flashProximoBtn" ${flashIndex===questoesAtivas.length-1 ? "disabled" : ""}>Próximo ▶</button>
+    </div>
+  `;
+  if(flashVirado){
+    document.getElementById("flashVersoWrap").appendChild(criarLinksEstudo(q));
+  }
+  document.getElementById("flashFecharBtn").addEventListener("click", fecharFlashcards);
+  document.getElementById("flashVirarBtn").addEventListener("click", () => { flashVirado = !flashVirado; renderFlashcardAtual(); });
+  document.getElementById("flashAnteriorBtn").addEventListener("click", () => { if(flashIndex>0){ flashIndex--; flashVirado=false; renderFlashcardAtual(); }});
+  document.getElementById("flashProximoBtn").addEventListener("click", () => { if(flashIndex<questoesAtivas.length-1){ flashIndex++; flashVirado=false; renderFlashcardAtual(); }});
 }
 
 async function buscarErrosSalvos(){
@@ -1389,9 +1516,14 @@ async function buscarErrosSalvos(){
   }
 }
 retomarBtn.addEventListener("click", buscarErrosSalvos);
+document.getElementById("surpresaBtn").addEventListener("click", iniciarProvaSurpresa);
+document.getElementById("flashcardsBtn").addEventListener("click", abrirFlashcards);
 
 document.getElementById("corrigirBtn").addEventListener("click", corrigir);
-document.getElementById("reiniciarBtn").addEventListener("click", () => carregarProva(provaAtual.id));
+document.getElementById("reiniciarBtn").addEventListener("click", () => {
+  if(provaAtual.id === "surpresa") iniciarProvaSurpresa();
+  else carregarProva(provaAtual.id);
+});
 provaSelect.addEventListener("change", e => carregarProva(e.target.value));
 
 popularSelect();
