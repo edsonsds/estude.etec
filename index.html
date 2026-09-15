@@ -127,7 +127,8 @@
     padding:28px 26px; max-height:85vh; overflow-y:auto;
     box-shadow:0 20px 60px rgba(0,0,0,.35);
   }
-  .report-card h2{font-family:var(--serif); margin:0 0 14px; font-size:22px; color:var(--brand);}
+  .report-card h2{font-family:var(--serif); margin:0 0 4px; font-size:22px; color:var(--brand);}
+  .report-prova{font-size:14px; color:var(--ink-soft); margin:0 0 16px; font-weight:600;}
   .report-score{font-family:var(--serif); font-size:26px; font-weight:700; margin-bottom:14px;}
   .report-score span{font-family:var(--sans); font-size:14px; font-weight:400; color:var(--ink-soft);}
   .report-sub{font-size:14px; color:var(--ink-soft); margin-bottom:10px;}
@@ -1372,6 +1373,7 @@ function mostrarRelatorio(acertos, total, uidsErrados){
   overlay.innerHTML = `
     <div class="report-card">
       <h2>Resultado da prova</h2>
+      <p class="report-prova">${escapeHtml(provaAtual.titulo)}</p>
       <div class="report-score">${acertos} <span>acertos</span> &nbsp;·&nbsp; ${total-acertos} <span>erros</span></div>
       ${posicoes.length ? `<p class="report-sub">Questões que você errou (estude o assunto antes de tentar de novo — as respostas não são mostradas aqui de propósito):</p>` : ""}
       ${listaHtml}
