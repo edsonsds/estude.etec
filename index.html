@@ -1283,8 +1283,8 @@ function atualizarLinksPdf(){
   const pdfGabarito = document.getElementById("pdfGabaritoLink");
   if(!pdfProva || !pdfGabarito) return;
   if(provaAtual && provaAtual.id !== "surpresa"){
-    pdfProva.href = `provas-pdf/${provaAtual.id}-prova.pdf`;
-    pdfGabarito.href = `provas-pdf/${provaAtual.id}-gabarito.pdf`;
+    pdfProva.href = `provas-pdf/provas-pdf/${provaAtual.id}-prova.pdf`;
+    pdfGabarito.href = `provas-pdf/provas-pdf/${provaAtual.id}-gabarito.pdf`;
     pdfProva.style.display = "inline-block";
     pdfGabarito.style.display = "inline-block";
   } else {
