@@ -194,6 +194,10 @@
   .btn-primary{background:var(--brand); color:#FBF4E8;}
   .btn-primary:hover{background:var(--brand-dark);}
   .btn-ghost{background:transparent; color:var(--ink); border:1px solid var(--paper-line);}
+  .pdf-link{
+    font-family:var(--sans); font-weight:600; font-size:14px; padding:9px 16px;
+    border-radius:7px; cursor:pointer; text-decoration:none; display:inline-block;
+  }
   .result{
     text-align:center; padding:18px; font-family:var(--serif); font-size:20px;
   }
@@ -221,6 +225,8 @@
   <button class="btn-ghost" id="retomarBtn" type="button" style="display:none;">🔁 Retomar erros salvos</button>
   <button class="btn-primary" id="surpresaBtn" type="button">🎲 Prova Surpresa</button>
   <button class="btn-ghost" id="flashcardsBtn" type="button">📇 Flashcards</button>
+  <a class="btn-ghost pdf-link" id="pdfProvaLink" href="#" target="_blank" rel="noopener">📄 Prova (PDF)</a>
+  <a class="btn-ghost pdf-link" id="pdfGabaritoLink" href="#" target="_blank" rel="noopener">📋 Gabarito (PDF)</a>
   <button class="btn-ghost" id="adminBtn" type="button" style="display:none;">Painel do administrador</button>
 </div>
 
@@ -1269,6 +1275,22 @@ function carregarProva(id){
   renderQuestoes();
   atualizarStat();
   resetTimer();
+  atualizarLinksPdf();
+}
+
+function atualizarLinksPdf(){
+  const pdfProva = document.getElementById("pdfProvaLink");
+  const pdfGabarito = document.getElementById("pdfGabaritoLink");
+  if(!pdfProva || !pdfGabarito) return;
+  if(provaAtual && provaAtual.id !== "surpresa"){
+    pdfProva.href = `provas-pdf/${provaAtual.id}-prova.pdf`;
+    pdfGabarito.href = `provas-pdf/${provaAtual.id}-gabarito.pdf`;
+    pdfProva.style.display = "inline-block";
+    pdfGabarito.style.display = "inline-block";
+  } else {
+    pdfProva.style.display = "none";
+    pdfGabarito.style.display = "none";
+  }
 }
 
 function renderQuestoes(){
@@ -1457,6 +1479,7 @@ function iniciarProvaSurpresa(){
   renderQuestoes();
   atualizarStat();
   resetTimer();
+  atualizarLinksPdf();
   window.scrollTo({top:0, behavior:"smooth"});
 }
 
